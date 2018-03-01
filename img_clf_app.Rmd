@@ -1,0 +1,152 @@
+---
+title: "Deep Learning Image Classification with Keras"
+author: "By Jasmine Dumas"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: simplex
+    orientation: rows
+    vertical_layout: fill
+    runtime: shiny
+    social: menu
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(devtools)
+library(flexdashboard)
+library(keras)
+library(knitr)
+library(DT)
+
+options(DT.options = list(pageLength = 3, dom = 't'))
+```
+
+
+Sidebar {.sidebar}
+=====================================
+
+Keras is a user-friendly neural networks API. This application uses the **ResNet50 model**, with weights pre-trained on [ImageNet](http://www.image-net.org/) to enable fast experimentation for prediction of images classes including:
+
+- Animals 🦋
+- Plants 🌳
+- Activities ⚽
+- Food 🍹
+
+______
+
+```{r, sidebar}
+# shiny inputs defined here
+fileInput("file1", "Select an image from your local machine:", accept = c(".jpg", ".jpeg", ".png"))
+```
+
+Model {data-icon="fa-magic"}
+=====================================  
+
+Row {data-height=750}
+-------------------------------------
+
+
+### Image Preview
+
+```{r}
+renderImage({
+
+  src <- input$file1
+  src <- src$datapath
+
+    if (is.null(src)) {
+      list(src = "www/butterfly.jpg",
+      height = "450",
+      alt = "This is alternate text")
+    } else {
+      # Return a list
+      list(src = src,
+      height = "450",
+      alt = "This is alternate text")
+    }
+      
+  }, deleteFile = FALSE)
+```
+
+
+Row
+-------------------------------------
+
+### Results 
+
+```{r, global, include=FALSE}
+# instantiate the model
+model <- application_resnet50(weights = 'imagenet')
+```
+
+
+```{r, results}
+renderDT({
+    # input$file1 will be NULL initially. After the user selects
+    # and uploads a file, it will be a data frame with 'name',
+    # 'size', 'type', and 'datapath' columns. The 'datapath'
+    # column will contain the local filenames where the data can
+    # be found.
+    inFile <- input$file1
+
+    if (is.null(inFile))
+      return(NULL)
+
+    withProgress(message = 'Predicting...', value = 1, {
+      
+    # load the image (copy an image from Photos)
+    img_path <- inFile$datapath
+    img <- image_load(img_path, target_size = c(224,224))
+    x <- image_to_array(img)
+    
+    # ensure we have a 4d tensor with single element in the batch dimension,
+    # the preprocess the input for prediction using resnet50
+    x <- array_reshape(x, c(1, dim(x)))
+    x <- imagenet_preprocess_input(x)
+    
+    # make predictions then decode and print them
+    preds <- model %>% predict(x)
+    
+    # table mods
+    main = imagenet_decode_predictions(preds, top = 3)[[1]]
+    main$explore_class_on_imagenet <- sprintf('<a href="http://image-net.org/explore?wnid=%s" target="_blank">Explore %s on ImageNet</a>', main$class_name, main$class_description)
+    
+    DT::datatable(main)
+    
+    return(main)
+  }) # end of progress message
+}, escape = FALSE)
+```
+   
+
+
+Resources {data-icon="fa-bookmark"}
+===================================== 
+
+**What the heck is a Deep Learning model?**
+
+A Deep Learning model (neural net/work) is essentially a bunch of linear models stitched together, capable of abstracting complex non-linear relationships from the training data. These models allow for the modeler to focus on hyper parameter tuning instead of feature engineering.
+
+**What is a pre-trained model?**
+
+A pre-trained model is one which has been previously trained on a similar task other than the current one. It has two parts – model architecture and model weights. 
+
+**What are the benefits and tradeoffs?**
+
+A pre-trained model, while not 100% accurate still provides a very useful starting point because the features learned while training on the former task are useful for the new task. [4]  
+Tranfering the learnings from the pre-trained model reduces the computational cost from developing a neural net from scratch. 
+
+_____
+  
+Here are a list of tutorials and papers about Deep Learning & Image Classification:
+  
+1. [DataCamp's Keras Deep Learning R Tutorial](https://www.datacamp.com/community/tutorials/keras-r-deep-learning)
+2. [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)  
+3. [ResNet50 Model](http://ethereon.github.io/netscope/#/gist/db945b393d40bfa26006)
+4. [Keras Tutorial: Using pre-trained Imagenet models](http://www.learnopencv.com/keras-tutorial-using-pre-trained-imagenet-models/)
+5. [Keras Pretrained models from Kaggle](https://www.kaggle.com/gaborfodor/keras-pretrained-models)
+6. [Transfer learning & The art of using Pre-trained Models in Deep Learning](https://www.analyticsvidhya.com/blog/2017/06/transfer-learning-the-art-of-fine-tuning-a-pre-trained-model/)
+7. [useR 2016 Machine Learning Algorithmic Deep Dive Tutorial](https://github.com/ledell/useR-machine-learning-tutorial/blob/master/deep-neural-networks.ipynb)
+8. [Transfer Learning](https://en.wikipedia.org/wiki/Transfer_learning)
+
+
